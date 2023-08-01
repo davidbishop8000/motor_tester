@@ -10,9 +10,6 @@
 U8G2_SSD1306_128X64_NONAME_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ PA5, /* data=*/ PA7, /* cs=*/ PB1, /* dc=*/ PA6, /* reset=*/ PB0);
 //====u8x8=====
 
-#define BEEPER PB10
-#define LED_LEVEL PB11
-
 HardwareSerial Serial1(PA10, PA9);
 //HardwareSerial Serial2(PA3, PA2);
 //HardwareSerial Serial3(PB11, PB10);
@@ -44,13 +41,19 @@ int dir = 0;
 #define ENC_CLK PB10
 #define ENC_DATA PB11
 
-volatile uint32_t encoderCount;
+volatile int32_t encoderCount;
+volatile int e_c = 0;
+volatile int e_d = 0;
 
 void encoder1_read(void)
 {
   volatile static uint8_t ABs = 0;
   ABs = (ABs << 2) & 0x0f; //left 2 bits now contain the previous AB key read-out;
-  ABs |= (digitalRead(ENC_CLK) << 1) | digitalRead(ENC_DATA);
+  //ABs |= (digitalRead(ENC_CLK) << 1) | digitalRead(ENC_DATA);
+  //ABs |= ((GPIOB->IDR & (1 << 10)) << 1) | (GPIOB->IDR & (1 << 11));
+  GPIOB->IDR & (1 << 10) ? (e_c = 0) : (e_c = 1);
+  GPIOB->IDR & (1 << 11) ? (e_d = 0) : (e_d = 1);
+  ABs |= (e_c << 1) | e_d;
   switch (ABs)
   {
     case 0x0d:
@@ -71,10 +74,6 @@ void setup(void) {
   Serial1.begin(9600);
   pinMode(PC13, OUTPUT);
   digitalWrite(PC13, LOW);
-  pinMode(BEEPER, OUTPUT);
-  digitalWrite(BEEPER, LOW);
-  pinMode(LED_LEVEL, OUTPUT);
-  digitalWrite(LED_LEVEL, LOW);
 
   pinMode(PB12, INPUT);
   pinMode(PB13, INPUT);
@@ -89,40 +88,24 @@ void setup(void) {
   u8g2.print("Загрузка");
   u8g2.drawFrame(14, 20, 106, 16);
   u8g2.sendBuffer();
-  delay(100);
-  for (int i = 10; i < 119; i+=5)
+  delay(5);
+  /*for (int i = 10; i < 119; i+=5)
   {
     u8g2.drawBox(i, 20, 5, 16);
     delay(1);
     u8g2.sendBuffer();
-  }
+  }*/
+  u8g2.drawBox(10, 20, 110, 16);
+  u8g2.sendBuffer();
   iwdg_init(IWDG_PRE_256, 625); //156Hz - 4s
-  delay(100);
-  if(!digitalRead(PB12))
-  {
-    cap_min_level = 5;
-  }
-  if(!digitalRead(PB13))
-  {
-    cap_min_level = 10;
-  }
-  if(!digitalRead(PB14))
-  {
-    cap_min_level = 15;
-  }
-  if(!digitalRead(PB15))
-  {
-    cap_min_level = 20;
-  }
-  digitalWrite(BEEPER, HIGH);
-  digitalWrite(LED_LEVEL, HIGH);
-  delay(300);
-  digitalWrite(BEEPER, LOW);
-  digitalWrite(LED_LEVEL, LOW);
+  delay(10);
 
   pinMode(ENC_CLK, INPUT);
   pinMode(ENC_DATA, INPUT);
-  encoderCount = 10000;
+
+  //pinMode(ENC_CLK, INPUT_PULLDOWN);
+  //pinMode(ENC_DATA, INPUT_PULLDOWN);
+  encoderCount = 0;
 
   u8g2.setDrawColor(1);
 }
@@ -169,39 +152,6 @@ void oledDisplayUpdate()
   }
 }
 
-void check_low_level()
-{
-  if (capacity_percent < cap_min_level)
-  {
-    static unsigned long blink_time = 0;
-    static unsigned long beep_time = 0;
-    if (millis() - beep_time > 8000)
-    {
-      beep_time = millis();
-      digitalWrite(BEEPER, HIGH);
-      delay(100);
-      digitalWrite(BEEPER, LOW);
-      delay(100);
-      digitalWrite(BEEPER, HIGH);
-      delay(100);
-      digitalWrite(BEEPER, LOW);
-      delay(100);
-      digitalWrite(BEEPER, HIGH);
-      delay(100);
-      digitalWrite(BEEPER, LOW);
-      digitalWrite(LED_LEVEL, !digitalRead(LED_LEVEL));
-    }
-    if (millis() - blink_time > 500)
-    {
-      blink_time = millis();
-      digitalWrite(LED_LEVEL, !digitalRead(LED_LEVEL));
-    }    
-  }
-  else {
-    digitalWrite(BEEPER, LOW);
-    digitalWrite(LED_LEVEL, LOW);
-  }
-}
 uint8_t count_inbyte = 0;
 void getSerialData()
 {  
@@ -228,7 +178,7 @@ void getEnc()
 {
   u8g2.clearBuffer();
   u8g2.setCursor(0, 30);
-  u8g2.print("pos: "+ (String)pos);
+  u8g2.print("enc: "+ (String)encoderCount);
   //u8g2.setCursor(0, 60);
   //u8g2.print("dir: "+ (String)dir);
   u8g2.sendBuffer();
@@ -297,7 +247,7 @@ void loop(void) {
   if (cap_min_level > 0) check_low_level();
 */
 
-  pos = encoderCount;
+  //pos = encoderCount;
   encoder1_read();
 
   if (HAL_GetTick() - enc_timer > 1000)
