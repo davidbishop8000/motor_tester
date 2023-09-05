@@ -2,7 +2,7 @@
 #include <SPI.h>
 #include <HardwareSerial.h>
 #include <iwdg.h>
-#include <RotaryEncoder.h>
+//#include <RotaryEncoder.h>
 //====u8x8=====
 //#include <U8x8lib.h>
 //U8X8_SSD1306_128X64_NONAME_4W_SW_SPI u8x8(/* clock=*/ PA5, /* data=*/ PA7, /* cs=*/ PB1, /* dc=*/ PA6, /* reset=*/ PB0);
@@ -70,6 +70,23 @@ void encoder1_read(void)
   encoder1_read();
 }
 */
+
+void pinAInterrupt()
+{
+	//When pin A's wave is detected...
+
+	if (digitalRead(ENC_DATA) == 0) //if B is LOW, it means that pin A's wave occured first -> CW rotation occured
+	{
+		encoderCount++; //increase value
+		//Serial.println(numberofclicks); //do not use delays or prints in the final code, use it only for debugging/developing
+	}
+	else //if B is HIGH, it means that pin B's wave occured first. So, when pin A has a rising edge, pin B is alreadi high -> CCW rotation
+	{
+		encoderCount--; //decrease value
+		//Serial.println(numberofclicks);
+	}
+}
+
 void setup(void) {
   Serial1.begin(9600);
   pinMode(PC13, OUTPUT);
@@ -97,17 +114,22 @@ void setup(void) {
   }*/
   u8g2.drawBox(10, 20, 110, 16);
   u8g2.sendBuffer();
-  iwdg_init(IWDG_PRE_256, 625); //156Hz - 4s
+  //iwdg_init(IWDG_PRE_256, 625); //156Hz - 4s
   delay(10);
 
-  pinMode(ENC_CLK, INPUT);
-  pinMode(ENC_DATA, INPUT);
+  //pinMode(ENC_CLK, INPUT);
+  //pinMode(ENC_DATA, INPUT);
 
   //pinMode(ENC_CLK, INPUT_PULLDOWN);
   //pinMode(ENC_DATA, INPUT_PULLDOWN);
   encoderCount = 0;
 
   u8g2.setDrawColor(1);
+
+  pinMode(ENC_CLK, INPUT_PULLUP);
+	pinMode(ENC_DATA, INPUT_PULLUP);
+
+	attachInterrupt(digitalPinToInterrupt(ENC_CLK), pinAInterrupt, RISING);
 }
 
 void oledDisplayUpdate()
@@ -187,7 +209,7 @@ void getEnc()
 
 
 void loop(void) {
-  iwdg_feed();
+  //iwdg_feed();
   /*getSerialData();
 
   if (HAL_GetTick() - bms_req_time > 1000)
@@ -248,9 +270,9 @@ void loop(void) {
 */
 
   //pos = encoderCount;
-  encoder1_read();
+  //encoder1_read();
 
-  if (HAL_GetTick() - enc_timer > 1000)
+  if (HAL_GetTick() - enc_timer > 50)
   {
     enc_timer = HAL_GetTick();
     getEnc();
