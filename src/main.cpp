@@ -11,8 +11,11 @@ U8G2_SSD1306_128X64_NONAME_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ PA5, /* data=*/
 //====u8x8=====
 
 //#define NEW_SCREEN
-
+void oledDisplayUpdate();
+void getSerialData();
 #ifdef NEW_SCREEN
+  HardwareSerial Serial1(PA10, PA9);
+#else
   HardwareSerial Serial1(PA10, PA9);
 #endif
 //HardwareSerial Serial2(PA3, PA2);
@@ -36,6 +39,8 @@ uint8_t bms_err = 0;
 uint16_t capacity_percent = 0;
 uint8_t bms_stype = 0;
 uint8_t cap_min_level = 0;
+
+uint8_t count_inbyte = 0;
 
 
 unsigned long enc_timer = 0;
@@ -97,22 +102,22 @@ void pinAInterrupt()
 }
 
 void setup(void) {
+  Serial1.begin(9600);
+  pinMode(PC13, OUTPUT);
+  digitalWrite(PC13, LOW);
   #ifdef NEW_SCREEN
-    Serial1.begin(9600);
-    pinMode(PC13, OUTPUT);
-    digitalWrite(PC13, LOW);
-
     pinMode(PB12, INPUT);
     pinMode(PB13, INPUT);
     pinMode(PB14, INPUT);
     pinMode(PB15, INPUT);
   #endif
   u8g2.begin();
-  u8g2.enableUTF8Print();
+  //u8g2.enableUTF8Print();
   u8g2.setFlipMode(0);
   u8g2.clearBuffer();
   //u8g2.setFont(u8g2_font_10x20_t_cyrillic);
   u8g2.setFont(u8g2_font_profont29_mr);
+  //u8g2.setFont(u8g2_font_inb63_mn);
   u8g2.setCursor(5, 60);
   u8g2.print("Loading");
   u8g2.drawFrame(14, 20, 106, 16);
@@ -126,6 +131,7 @@ void setup(void) {
   }*/
   u8g2.drawBox(10, 20, 110, 16);
   u8g2.sendBuffer();
+  //u8g2.setFont(u8g2_font_inb63_mn);
   //iwdg_init(IWDG_PRE_256, 625); //156Hz - 4s
   delay(30);
 
@@ -136,12 +142,64 @@ void setup(void) {
   //pinMode(ENC_DATA, INPUT_PULLDOWN);
   encoderCount = 0;
 
-  u8g2.setDrawColor(1);
+  //u8g2.setDrawColor(1);
   
   pinMode(ENC_CLK, INPUT_PULLUP);
 	pinMode(ENC_DATA, INPUT_PULLUP);
 
 	attachInterrupt(digitalPinToInterrupt(ENC_CLK), pinAInterrupt, RISING);
+  #ifdef NEW_SCREEN
+    delay(10);
+  #else
+    delay(10);
+    /*
+    u8g2.clearBuffer();
+    u8g2.setCursor(0, 40);
+    u8g2.print("TEST BMS");
+    u8g2.sendBuffer();
+    delay(200);
+
+    digitalWrite(PC13, HIGH);
+    delay(1);
+    count_inbyte = 0;
+    Serial1.write(bms_jbd_request_msg, sizeof(bms_jbd_request_msg));
+    delay(1);
+    Serial1.flush();
+    digitalWrite(PC13, LOW);
+    delay(1);
+    unsigned long respons_wait = millis();
+    while (millis() - respons_wait < 1000)
+    {
+      getSerialData();
+    }
+    if (capacity_percent)
+    {
+      oledDisplayUpdate();
+      delay(5000);
+    }
+    else
+    {
+      digitalWrite(PC13, HIGH);
+      delay(1);
+      count_inbyte = 0;
+      Serial1.write(bms_smart_request_msg, sizeof(bms_smart_request_msg));
+      delay(1);
+      Serial1.flush();
+      digitalWrite(PC13, LOW);
+      delay(1);
+      respons_wait = millis();
+      while (millis() - respons_wait < 1000)
+      {
+        getSerialData();
+      }
+      if (capacity_percent)
+      {
+        oledDisplayUpdate();
+        delay(5000);
+      }
+    }
+    */
+  #endif
 }
 
 void oledDisplayUpdate()
@@ -186,7 +244,6 @@ void oledDisplayUpdate()
   }
 }
 
-uint8_t count_inbyte = 0;
 void getSerialData()
 {  
   while (Serial1.available() > 0)
@@ -210,9 +267,56 @@ void getSerialData()
 
 void getEnc()
 {
+  static int i = 0;
+  static bool c_y = 0;
   u8g2.clearBuffer();
   u8g2.setCursor(10, 40);
-  u8g2.print((String)encoderCount);
+  if (encoderCount == 0)
+  {
+    u8g2.setCursor(10, 64);
+    //u8g2.print("---");    
+    if (i > 20)
+    {
+      if (i > 36)
+      {
+        u8g2.drawFilledEllipse(40, 35, 15, 5, U8G2_DRAW_ALL);
+        u8g2.drawFilledEllipse(90, 35, 15, 5, U8G2_DRAW_ALL);
+        if (i > 38)
+        {
+          i = 0;
+          c_y = !c_y;
+        }
+      }
+      else
+      {
+        u8g2.drawEllipse(40, 35, 15, 18, U8G2_DRAW_ALL);
+        u8g2.drawEllipse(90, 35, 15, 18, U8G2_DRAW_ALL);
+        u8g2.drawEllipse(40, 35, 14, 17, U8G2_DRAW_ALL);
+        u8g2.drawEllipse(90, 35, 14, 17, U8G2_DRAW_ALL);
+        u8g2.drawDisc(45, 40, 10, U8G2_DRAW_ALL);
+        u8g2.drawDisc(95, 40, 10, U8G2_DRAW_ALL);
+        if (i == 35 && !c_y)
+        {
+          i = 0;
+          c_y = !c_y;
+        }
+      }
+    }
+    else
+    {
+      u8g2.drawEllipse(40, 35, 15, 18, U8G2_DRAW_ALL);
+      u8g2.drawEllipse(90, 35, 15, 18, U8G2_DRAW_ALL);
+      u8g2.drawEllipse(40, 35, 14, 17, U8G2_DRAW_ALL);
+      u8g2.drawEllipse(90, 35, 14, 17, U8G2_DRAW_ALL);
+      u8g2.drawDisc(35, 40, 10, U8G2_DRAW_ALL);
+      u8g2.drawDisc(85, 40, 10, U8G2_DRAW_ALL);
+    }
+    i++;
+  }
+  else
+  {
+    u8g2.print((String)encoderCount);
+  }
   //u8g2.setCursor(0, 60);
   //u8g2.print("dir: "+ (String)dir);
   u8g2.sendBuffer();
@@ -245,7 +349,7 @@ void loop(void) {
         count_inbyte = 0;
         digitalWrite(PC13, HIGH);
         delay(1);
-        Serial1.write(bms_smart_request_msg, sizeof(bms_smart_request_msg));               
+        Serial1.write(bms_smart_request_msg, sizeof(bms_smart_request_msg));
         delay(1);
         Serial1.flush();
         digitalWrite(PC13, LOW);
