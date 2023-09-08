@@ -10,7 +10,11 @@
 U8G2_SSD1306_128X64_NONAME_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ PA5, /* data=*/ PA7, /* cs=*/ PB1, /* dc=*/ PA6, /* reset=*/ PB0);
 //====u8x8=====
 
-HardwareSerial Serial1(PA10, PA9);
+//#define NEW_SCREEN
+
+#ifdef NEW_SCREEN
+  HardwareSerial Serial1(PA10, PA9);
+#endif
 //HardwareSerial Serial2(PA3, PA2);
 //HardwareSerial Serial3(PB11, PB10);
 
@@ -38,8 +42,13 @@ unsigned long enc_timer = 0;
 int16_t pos = 0;
 int dir = 0;
 
-#define ENC_CLK PB10
-#define ENC_DATA PB11
+#ifdef NEW_SCREEN
+  #define ENC_CLK PB10
+  #define ENC_DATA PB11
+#else
+  #define ENC_CLK PA2
+  #define ENC_DATA PA3
+#endif
 
 volatile int32_t encoderCount;
 volatile int e_c = 0;
@@ -88,21 +97,24 @@ void pinAInterrupt()
 }
 
 void setup(void) {
-  Serial1.begin(9600);
-  pinMode(PC13, OUTPUT);
-  digitalWrite(PC13, LOW);
+  #ifdef NEW_SCREEN
+    Serial1.begin(9600);
+    pinMode(PC13, OUTPUT);
+    digitalWrite(PC13, LOW);
 
-  pinMode(PB12, INPUT);
-  pinMode(PB13, INPUT);
-  pinMode(PB14, INPUT);
-  pinMode(PB15, INPUT);
+    pinMode(PB12, INPUT);
+    pinMode(PB13, INPUT);
+    pinMode(PB14, INPUT);
+    pinMode(PB15, INPUT);
+  #endif
   u8g2.begin();
   u8g2.enableUTF8Print();
   u8g2.setFlipMode(0);
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_10x20_t_cyrillic);
-  u8g2.setCursor(25, 60);
-  u8g2.print("Загрузка");
+  //u8g2.setFont(u8g2_font_10x20_t_cyrillic);
+  u8g2.setFont(u8g2_font_profont29_mr);
+  u8g2.setCursor(5, 60);
+  u8g2.print("Loading");
   u8g2.drawFrame(14, 20, 106, 16);
   u8g2.sendBuffer();
   delay(5);
@@ -115,7 +127,7 @@ void setup(void) {
   u8g2.drawBox(10, 20, 110, 16);
   u8g2.sendBuffer();
   //iwdg_init(IWDG_PRE_256, 625); //156Hz - 4s
-  delay(10);
+  delay(30);
 
   //pinMode(ENC_CLK, INPUT);
   //pinMode(ENC_DATA, INPUT);
@@ -125,7 +137,7 @@ void setup(void) {
   encoderCount = 0;
 
   u8g2.setDrawColor(1);
-
+  
   pinMode(ENC_CLK, INPUT_PULLUP);
 	pinMode(ENC_DATA, INPUT_PULLUP);
 
@@ -199,8 +211,8 @@ void getSerialData()
 void getEnc()
 {
   u8g2.clearBuffer();
-  u8g2.setCursor(0, 30);
-  u8g2.print("enc: "+ (String)encoderCount);
+  u8g2.setCursor(10, 40);
+  u8g2.print((String)encoderCount);
   //u8g2.setCursor(0, 60);
   //u8g2.print("dir: "+ (String)dir);
   u8g2.sendBuffer();
