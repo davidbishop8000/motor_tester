@@ -10,9 +10,11 @@
 U8G2_SSD1306_128X64_NONAME_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ PA5, /* data=*/ PA7, /* cs=*/ PB1, /* dc=*/ PA6, /* reset=*/ PB0);
 //====u8x8=====
 
-//#define NEW_SCREEN
+#define NEW_SCREEN
+
 void oledDisplayUpdate();
 void getSerialData();
+int s_count = 12;
 #ifdef NEW_SCREEN
   HardwareSerial Serial1(PA10, PA9);
 #else
@@ -22,7 +24,7 @@ void getSerialData();
 //HardwareSerial Serial3(PB11, PB10);
 
 uint8_t bms_smart_request_msg[]  = {0xA5, 0x40, 0x90, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7D};
-uint8_t bms_jbd_request_msg[] = {0x01, 0x03, 0x00, 0x2E, 0x00, 0x01, 0xE4, 0x03};
+uint8_t bms_jbd_request_msg[] = {0xDD, 0xA5, 0x03, 0x00, 0xFF, 0xFD, 0x77};
 
 enum BMS_TYPE {
 	BMS_NONE = 0,
@@ -149,10 +151,8 @@ void setup(void) {
 
 	attachInterrupt(digitalPinToInterrupt(ENC_CLK), pinAInterrupt, RISING);
   #ifdef NEW_SCREEN
+    Serial1.setTimeout(1000);
     delay(10);
-  #else
-    delay(10);
-    /*
     u8g2.clearBuffer();
     u8g2.setCursor(0, 40);
     u8g2.print("TEST BMS");
@@ -162,6 +162,7 @@ void setup(void) {
     digitalWrite(PC13, HIGH);
     delay(1);
     count_inbyte = 0;
+    s_count = 24;
     Serial1.write(bms_jbd_request_msg, sizeof(bms_jbd_request_msg));
     delay(1);
     Serial1.flush();
@@ -174,6 +175,11 @@ void setup(void) {
     }
     if (capacity_percent)
     {
+      u8g2.clearBuffer();
+      u8g2.setCursor(0, 40);
+      u8g2.print("JBD");
+      u8g2.sendBuffer();
+      delay(2000);
       oledDisplayUpdate();
       delay(5000);
     }
@@ -182,6 +188,7 @@ void setup(void) {
       digitalWrite(PC13, HIGH);
       delay(1);
       count_inbyte = 0;
+      s_count = 12;
       Serial1.write(bms_smart_request_msg, sizeof(bms_smart_request_msg));
       delay(1);
       Serial1.flush();
@@ -194,11 +201,17 @@ void setup(void) {
       }
       if (capacity_percent)
       {
+        u8g2.clearBuffer();
+        u8g2.setCursor(0, 40);
+        u8g2.print("SMART");
+        u8g2.sendBuffer();
+        delay(2000);
         oledDisplayUpdate();
         delay(5000);
       }
     }
-    */
+  #else
+    delay(10);    
   #endif
 }
 
@@ -248,8 +261,8 @@ void getSerialData()
 {  
   while (Serial1.available() > 0)
   {
-    count_inbyte = Serial1.readBytes(settDataIn, 13);
-    if (count_inbyte > 40) count_inbyte = 0;
+    count_inbyte = Serial1.readBytes(settDataIn, s_count);
+    if (count_inbyte > 40) count_inbyte = 0;    
   }
   if (settDataIn[0] == 0xA5 && settDataIn[1] == 0x01 && count_inbyte > 10) {
     smart_bms = 1;
